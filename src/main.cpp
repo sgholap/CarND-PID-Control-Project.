@@ -9,6 +9,7 @@
 using nlohmann::json;
 using std::string;
 
+const bool isTwiddleMode = false;
 // For converting back and forth between radians and degrees.
 constexpr double pi() { return M_PI; }
 double deg2rad(double x) { return x * pi() / 180; }
@@ -33,12 +34,19 @@ string hasData(string s) {
 int main() {
   uWS::Hub h;
 
-  PID pid;
-  /**
-   * TODO: Initialize the pid variable.
-   */
+  PID pid_steer(isTwiddleMode, 0.00001);
+  pid_steer.Init(0.254, 0, 0);
 
-  h.onMessage([&pid](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, 
+  const int N = 200;
+  int iterations = 0;
+  double average_cte = 0;
+  double count = 0;
+  double best_error = 10000000;
+  double bestKp = 0;
+  double Kp = 0;
+  double bestKd = 0;
+  double Kd = 0;
+  h.onMessage([&pid_steer, &N, &iterations, &average_cte, &count, &Kp, &bestKp, &bestKd, &Kd, &best_error](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
@@ -57,24 +65,70 @@ int main() {
           double speed = std::stod(j[1]["speed"].get<string>());
           double angle = std::stod(j[1]["steering_angle"].get<string>());
           double steer_value;
+          double throttle = 0.3;
           /**
            * TODO: Calculate steering value here, remember the steering value is
            *   [-1, 1].
            * NOTE: Feel free to play around with the throttle and speed.
            *   Maybe use another PID controller to control the speed!
            */
-          
-          // DEBUG
-          std::cout << "CTE: " << cte << " Steering Value: " << steer_value 
-                    << std::endl;
+		  iterations++;
+		  const double factor = 8;
 
-          json msgJson;
-          msgJson["steering_angle"] = steer_value;
-          msgJson["throttle"] = 0.3;
-          auto msg = "42[\"steer\"," + msgJson.dump() + "]";
-          std::cout << msg << std::endl;
-          ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
-        }  // end "telemetry" if
+		  // Below code only trigger when twiddle is enable.
+		  // We run till N * factor (8*200) and take average cte at interval of 200.
+		  // For running twiddle more efficiently, I check if cte > 3 i.e car is out of road.
+		  // If cte > 3, reset the path and assume that average cte for remaining checkpoint is high(3)
+		  if (isTwiddleMode && (iterations > (factor * N) || abs(cte) > 3)) {
+			  std::string reset_msg = "42[\"reset\",{}]";
+			  ws.send(reset_msg.data(), reset_msg.length(), uWS::OpCode::TEXT);
+			  double average;
+			  if (average_cte > 0)
+				  average = average_cte + (factor - count) * 3 * 3;
+			  else
+				  average = factor * 3 * 3;
+			  average = sqrt(average) / factor;
+			  pid_steer.Twiddle(std::sqrt(average));
+			iterations = 0;
+			average_cte = 0;
+			count = 0;
+          }
+		  else
+		  {
+			  // This is only use for twiddle.
+			  if (iterations % N == 0)
+			  {
+				  average_cte += cte*cte;
+				  count++;
+				  //std::cout << iterations << " " << cte << std::endl;
+			  }
+
+			  // Update the error with new Cte and get total error.
+              pid_steer.UpdateError(cte);
+              steer_value = pid_steer.TotalError();
+
+			  // Threshold steer value if received very large.
+              if (steer_value < -1) steer_value = -1;
+              if (steer_value > 1) steer_value = 1;
+
+			  // Car usually drive easily with 30Mph.
+			  // But, increasing speed result in crash at steep turn.
+			  // decrease the speed, even apply break if steer value is at extreme.
+			  throttle = 0.5 - 0.505 * abs(steer_value);
+
+			  if (!isTwiddleMode)
+			  std::cout << "CTE: " << cte << " Steering Value: " << steer_value
+				  << "CTE: " << cte << " Throttle Value: " << throttle
+				  << std::endl;
+
+              json msgJson;
+              msgJson["steering_angle"] = steer_value;
+              msgJson["throttle"] = throttle;
+              auto msg = "42[\"steer\"," + msgJson.dump() + "]";
+              //std::cout << msg << std::endl;
+              ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
+            }  // end "telemetry" if
+        }
       } else {
         // Manual driving
         string msg = "42[\"manual\",{}]";
