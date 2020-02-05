@@ -28,6 +28,8 @@ PID controller do proportional, integral and differential.
 3. PID controller: PD controller perform well, but after 3-4 lap, we may see car start behaving differently due to bias. I component address the issue.
 
 
+Output Video
+[Watch Video](https://youtu.be/PvOUVQjMeVg)
 
 ---
 
