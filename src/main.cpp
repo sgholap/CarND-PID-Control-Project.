@@ -35,18 +35,13 @@ int main() {
   uWS::Hub h;
 
   PID pid_steer(isTwiddleMode, 0.00001);
-  pid_steer.Init(0.254, 0, 0);
+  pid_steer.Init(0.254, 0, 3.8);
 
   const int N = 200;
   int iterations = 0;
   double average_cte = 0;
   double count = 0;
-  double best_error = 10000000;
-  double bestKp = 0;
-  double Kp = 0;
-  double bestKd = 0;
-  double Kd = 0;
-  h.onMessage([&pid_steer, &N, &iterations, &average_cte, &count, &Kp, &bestKp, &bestKd, &Kd, &best_error](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
+  h.onMessage([&pid_steer, &N, &iterations, &average_cte, &count](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
@@ -113,9 +108,9 @@ int main() {
 
 			  // Car usually drive easily with 30Mph.
 			  // But, increasing speed result in crash at steep turn.
-			  // decrease the speed, even apply break if steer value is at extreme.
+			  // decrease the speed, even apply break if steer value is extreme.
 			  throttle = 0.5 - 0.505 * abs(steer_value);
-
+			// DEBUG
 			  if (!isTwiddleMode)
 			  std::cout << "CTE: " << cte << " Steering Value: " << steer_value
 				  << "CTE: " << cte << " Throttle Value: " << throttle

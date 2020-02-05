@@ -1,6 +1,34 @@
 # CarND-Controls-PID
 Self-Driving Car Engineer Nanodegree Program
 
+## Overview
+
+The project implements a PID controller to control the car in Udacity simulator with PID project.
+PID controller do proportional, integral and differential.
+
+## Implementation
+1. We have added the code for initialization, updateError and Total error in PID.c as mention in lectures.
+2. The main.cpp uses the pid controller for controlling the steering.
+3. I have initially keep throttle at 0.3 which was running, however, increase the speed crashes the car on turn.
+   To address the issue, I throttle at 
+         throttle = 0.5 - 0.505 * steer_value;
+   Equation decreases the throttle depending on steer angle thus slowing the car at turn but runs at 50Mph on straight road.
+
+4. Fine tuning the hyperparameter coefficient. For tuning, I have run for 2000 steps and average CTE at 10 points at interval of 200 step.
+   I have use two technique to select the coefficient.
+   1. Coarse run: Just loop the PID with changing coefficient of P and I and D with interval of 0.2 for range of 0 to 5 and keep track of least error.
+   2. Twiddle: Once I have coarse parameter, fine tune it with twiddle algorithm mention in lecture. This improves accuracy further.
+      I don't but applying twiddle with coefficient from 0,0,0 was not converging to best values.
+   Final parameters [0.2, 0.0001, 3.8]
+   
+## Effect of PID coefficient.
+
+1. Only P controller: Training with only P controller makes car Oscillate at turn. The oscillation increases and even car crashes.
+2. Only PD controller: This reduce the oscillation and smooth the car run on straight and at turns.
+3. PID controller: PD controller perform well, but after 3-4 lap, we may see car start behaving differently due to bias. I component address the issue.
+
+
+
 ---
 
 ## Dependencies
